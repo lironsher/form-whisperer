@@ -1,0 +1,6 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    { "name": "form-whisperer", "runtimeExecutable": "node", "runtimeArgs": ["--env-file-if-exists=.env", "server.mjs"], "port": 3101 }
+  ]
+}

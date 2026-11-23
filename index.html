@@ -1,0 +1,413 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>טופס בשיחה</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Playpen+Sans+Hebrew:wght@500&display=swap">
+<style>
+  :root { --ink:#14213d; --bg:#f6f4ee; --card:#fff; --accent:#0b5fff; --pen:#0a2a8a; --line:#d9d4c7; }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family: -apple-system, "Segoe UI", Arial, sans-serif; background:var(--bg); color:var(--ink); height:100vh; display:flex; flex-direction:column; }
+  header { padding:12px 20px; display:flex; align-items:center; gap:16px; border-bottom:1px solid var(--line); background:var(--card); }
+  header h1 { font-size:22px; margin:0; }
+  header .sub { color:#5b6475; font-size:15px; flex:1; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  header button { white-space:nowrap; }
+  button { font:inherit; cursor:pointer; border:1px solid var(--line); background:var(--card); color:var(--ink); border-radius:10px; padding:10px 16px; min-height:44px; }
+  button.primary { background:var(--accent); color:#fff; border-color:var(--accent); font-weight:600; }
+  button:focus-visible, input:focus-visible, label:focus-within { outline:3px solid #ffb703; outline-offset:2px; }
+  button[aria-pressed="true"] { background:#14213d; color:#fff; }
+  main { flex:1; display:grid; grid-template-columns: minmax(340px, 38%) 1fr; min-height:0; }
+  #chatPane { display:flex; flex-direction:column; border-inline-end:1px solid var(--line); background:var(--card); min-height:0; }
+  #log { flex:1; overflow:auto; padding:20px; display:flex; flex-direction:column; gap:14px; }
+  .msg { max-width:92%; padding:14px 18px; border-radius:16px; font-size:22px; line-height:1.5; white-space:pre-wrap; }
+  .msg.bot { background:#eef3ff; align-self:flex-start; }
+  .msg.me { background:#14213d; color:#fff; align-self:flex-end; }
+  .options { display:flex; flex-wrap:wrap; gap:10px; align-self:flex-start; }
+  .options button { font-size:22px; padding:14px 26px; border:2px solid var(--accent); color:var(--accent); font-weight:600; border-radius:14px; min-height:56px; }
+  .options button:hover { background:var(--accent); color:#fff; }
+  body.big .msg, body.big #answer, body.big .options button { font-size:30px; }
+  .msg.note { background:none; color:#5b6475; font-size:16px; padding:0 6px; align-self:center; text-align:center; }
+  #composer { display:flex; gap:10px; padding:14px; border-top:1px solid var(--line); }
+  #answer { flex:1; font:inherit; font-size:22px; padding:12px 16px; border-radius:12px; border:2px solid var(--line); min-width:0; }
+  #mic { font-size:24px; width:60px; }
+  #mic.live { background:#d00000; color:#fff; border-color:#d00000; }
+  #paper { overflow:auto; padding:20px; min-height:0; }
+  #drop { border:3px dashed var(--line); border-radius:20px; padding:60px 30px; text-align:center; font-size:22px; background:var(--card); display:block; cursor:pointer; }
+  #drop input { position:absolute; opacity:0; width:1px; height:1px; }
+  @page { margin:0; }
+  .page { container-type:inline-size; position:relative; margin:0 auto 20px; box-shadow:0 2px 14px rgba(0,0,0,.15); background:#fff; width:100%; max-width:1000px; }
+  .page canvas { display:block; width:100%; height:auto; }
+  .fill { position:absolute; color:var(--pen); font-family:"Arial Hebrew", Arial, sans-serif; font-weight:600; display:flex; align-items:center; overflow:hidden; white-space:nowrap; line-height:1; padding:0 2px; }
+  .fill.text { justify-content:flex-start; direction:rtl; }
+  .fill.digits { direction:ltr; justify-content:space-around; padding:0; }
+  .fill.checkbox { justify-content:center; padding:0; }
+  .fill { font-family:"Playpen Sans Hebrew", "Arial Hebrew", Arial, sans-serif; }
+  .fill.fresh { animation: ink 2.4s ease-out; }
+  @keyframes ink { 0%,60% { background:#ffe066; } 100% { background:transparent; } }
+  body.scan .ghost { display:block; outline:2px solid #0b5fff; background:rgba(11,95,255,.14); animation: pop .45s both; }
+  @keyframes pop { from { opacity:0; transform:scale(1.8); } to { opacity:1; transform:scale(1); } }
+  @media (prefers-reduced-motion: reduce) { body.scan .ghost { animation:none; } }
+  body.boxes .fill, body.boxes .ghost { outline:1.5px solid rgba(255,0,110,.75); background:rgba(255,0,110,.08); }
+  .ghost { position:absolute; display:none; }
+  body.boxes .ghost { display:block; }
+  @media (prefers-reduced-motion: reduce) { .fill.fresh { animation:none; } }
+  @media (max-width: 800px) { main { grid-template-columns:1fr; grid-template-rows: 55vh auto; } }
+  @media print {
+    header, #chatPane { display:none !important; }
+    main { display:block; } #paper { overflow:visible; padding:0; }
+    .page { box-shadow:none; margin:0; max-width:none; page-break-after:always; }
+    body { height:auto; background:#fff; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>טופס בשיחה</h1>
+  <div class="sub" id="status" role="status" aria-live="polite">העלו כל טופס. נמלא אותו יחד, בשיחה פשוטה.</div>
+  <button id="newBtn">📄 טופס חדש</button>
+  <input type="file" id="newFile" accept="application/pdf,image/*" hidden>
+  <button id="voiceBtn" aria-pressed="false">🔊 הקראה</button>
+  <button id="rateBtn" aria-label="מהירות ההקראה: רגילה. לחצו כדי להאט">🐇 רגיל</button>
+  <button id="bigBtn" aria-pressed="false" aria-label="טקסט גדול">א+</button>
+  <button id="boxesBtn" aria-pressed="false">מה המודל ראה</button>
+  <button id="printBtn" class="primary" hidden>🖨️ הדפסה</button>
+</header>
+<main>
+  <section id="chatPane" aria-label="שיחה">
+    <div id="log" role="log" aria-live="polite"></div>
+    <form id="composer">
+      <button type="button" id="mic" aria-label="דיבור במקום הקלדה">🎤</button>
+      <input id="answer" autocomplete="off" placeholder="התשובה שלך…" aria-label="התשובה שלך" disabled>
+      <button class="primary" id="sendBtn" disabled>שליחה</button>
+    </form>
+  </section>
+  <section id="paper" aria-label="הטופס">
+    <label id="drop">
+      <input type="file" id="file" accept="application/pdf,image/*">
+      📄 גררו לכאן טופס, או לחצו לבחירה<br><small>PDF או צילום. בלי תבנית מוכנה — המודל רואה את הטופס בפעם הראשונה.</small>
+    </label>
+    <p style="text-align:center"><button id="sampleBtn">או נסו עם טופס 101</button></p>
+  </section>
+</main>
+<script>
+pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+const $ = (id) => document.getElementById(id);
+const state = { form: null, messages: [], values: {}, busy: false, speak: false, rate: 0 };
+const RATES = [
+  { rate: 1, label: "🐇 רגיל", name: "רגילה" },
+  { rate: 0.75, label: "🚶 לאט", name: "איטית" },
+  { rate: 0.55, label: "🐢 לאט מאוד", name: "איטית מאוד" },
+];
+
+const setStatus = (text) => ($("status").textContent = text);
+function say(role, text) {
+  const div = document.createElement("div");
+  div.className = `msg ${role}`;
+  div.textContent = text;
+  $("log").append(div);
+  div.scrollIntoView({ behavior: "smooth", block: "end" });
+  if (role === "bot" && state.speak) speak(text);
+}
+// Big tap targets for questions that are answered by picking.
+function showOptions(labels) {
+  document.querySelectorAll(".options").forEach((el) => el.remove());
+  if (!labels.length) return;
+  const row = document.createElement("div");
+  row.className = "options";
+  row.setAttribute("role", "group");
+  row.setAttribute("aria-label", "תשובות אפשריות");
+  for (const label of labels) {
+    const b = document.createElement("button");
+    b.type = "button"; b.textContent = label;
+    b.addEventListener("click", () => turn(label));
+    row.append(b);
+  }
+  $("log").append(row);
+  row.scrollIntoView({ behavior: "smooth", block: "end" });
+}
+let listen = null; // set when the browser can take dictation
+function speak(text) {
+  if (!("speechSynthesis" in window)) return;
+  speechSynthesis.cancel();
+  const u = new SpeechSynthesisUtterance(text);
+  // Hands-free: with read-aloud on, the microphone opens by itself once the question has been spoken.
+  u.onend = () => { if (state.speak && listen && !state.busy && state.form) listen(); };
+  u.lang = "he-IL";
+  u.rate = RATES[state.rate].rate;
+  const voice = speechSynthesis.getVoices().find((v) => v.lang.startsWith("he"));
+  if (voice) u.voice = voice;
+  speechSynthesis.speak(u);
+}
+async function post(url, body) {
+  const res = await fetch(url, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || res.statusText);
+  return data;
+}
+
+// ---- Turn the upload into page canvases -------------------------------------------------
+async function fileToCanvases(file) {
+  const canvases = [];
+  if (file.type === "application/pdf") {
+    const pdf = await pdfjsLib.getDocument({ data: await file.arrayBuffer() }).promise;
+    for (let n = 1; n <= pdf.numPages; n++) {
+      const page = await pdf.getPage(n);
+      const base = page.getViewport({ scale: 1 });
+      const viewport = page.getViewport({ scale: 2000 / Math.max(base.width, base.height) });
+      const canvas = document.createElement("canvas");
+      canvas.width = viewport.width; canvas.height = viewport.height;
+      await page.render({ canvasContext: canvas.getContext("2d"), viewport }).promise;
+      canvases.push(canvas);
+    }
+  } else {
+    const bitmap = await createImageBitmap(file);
+    const canvas = document.createElement("canvas");
+    canvas.width = bitmap.width; canvas.height = bitmap.height;
+    canvas.getContext("2d").drawImage(bitmap, 0, 0);
+    canvases.push(canvas);
+  }
+  return canvases;
+}
+// The copy the model sees: always the same size (small phone photos are enlarged), with a ruler grid
+// in 0-1000 coordinates drawn over it so the model reads positions off the grid instead of guessing.
+function toJpegB64(canvas, longEdge = 1568) {
+  const scale = longEdge / Math.max(canvas.width, canvas.height);
+  const out = document.createElement("canvas");
+  out.width = Math.round(canvas.width * scale); out.height = Math.round(canvas.height * scale);
+  const ctx = out.getContext("2d");
+  ctx.imageSmoothingQuality = "high";
+  ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, out.width, out.height);
+  ctx.drawImage(canvas, 0, 0, out.width, out.height);
+  ctx.font = "bold 13px Arial"; ctx.textBaseline = "top";
+  for (let t = 50; t < 1000; t += 50) {
+    const major = t % 100 === 0;
+    const x = (t / 1000) * out.width, y = (t / 1000) * out.height;
+    ctx.strokeStyle = major ? "rgba(0,150,255,.45)" : "rgba(0,150,255,.2)";
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, out.height); ctx.moveTo(0, y); ctx.lineTo(out.width, y); ctx.stroke();
+    if (!major) continue;
+    for (const [lx, ly] of [[x + 2, 2], [x + 2, out.height - 16], [2, y + 2], [out.width - 30, y + 2]]) {
+      ctx.fillStyle = "rgba(255,255,255,.85)"; ctx.fillRect(lx - 1, ly - 1, 28, 15);
+      ctx.fillStyle = "#0077cc"; ctx.fillText(String(t), lx, ly);
+    }
+  }
+  return out.toDataURL("image/jpeg", 0.9).split(",")[1];
+}
+
+async function loadForm(file) {
+  if (state.busy) return;
+  state.busy = true;
+  // A new form starts a new conversation.
+  Object.assign(state, { form: null, messages: [], values: {} });
+  $("log").replaceChildren();
+  $("printBtn").hidden = true;
+  speechSynthesis.cancel();
+  try {
+    setStatus("קורא את הטופס…");
+    const canvases = await fileToCanvases(file);
+    const paper = $("paper");
+    paper.replaceChildren();
+    canvases.forEach((canvas, i) => {
+      const page = document.createElement("div");
+      page.className = "page"; page.dataset.page = i + 1;
+      canvas.setAttribute("role", "img");
+      canvas.setAttribute("aria-label", `עמוד ${i + 1} של הטופס`);
+      page.append(canvas);
+      paper.append(page);
+    });
+    say("note", `המודל מסתכל על ${canvases.length} עמודים בפעם הראשונה ומחפש איפה כותבים…`);
+    if (Math.max(canvases[0].width, canvases[0].height) < 1000) {
+      say("note", `שימו לב: התמונה קטנה (${canvases[0].width}×${canvases[0].height}). ייתכן שהכתב לא ייפול בדיוק במשבצות. צילום חד יותר ייתן תוצאה טובה יותר.`);
+    }
+    const started = Date.now();
+    const digest = await crypto.subtle.digest("SHA-256", await file.arrayBuffer());
+    const fileHash = [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, "0")).join("");
+    const pages = await Promise.all(canvases.map((c, i) => post("/api/analyze", { image: toJpegB64(c), page: i + 1, fileHash })));
+    state.form = {
+      title: pages[0].title,
+      purpose: pages[0].purpose,
+      leftover: pages.flatMap((p) => p.leftover),
+      howto: pages.flatMap((p) => p.howto || []),
+      fields: pages.flatMap((p) => p.fields),
+    };
+    const secs = Math.round((Date.now() - started) / 1000);
+    say("note", `נמצאו ${state.form.fields.length} שדות ב"${state.form.title}"${pages.every((p) => p.cached) ? " (מהמטמון)" : ` תוך ${secs} שניות`}.`);
+    setStatus(state.form.title);
+    renderFills();
+    revealScan();
+    state.busy = false;
+    await turn();
+  } catch (error) {
+    say("note", `שגיאה: ${error.message}`);
+    setStatus("משהו השתבש. נסו שוב.");
+  } finally {
+    state.busy = false;
+  }
+}
+
+// ---- Draw answers onto the paper ---------------------------------------------------------
+function renderFills(freshIds = []) {
+  if (!state.form) return;
+  document.querySelectorAll(".fill, .ghost").forEach((el) => el.remove());
+  for (const field of state.form.fields) {
+    const page = document.querySelector(`.page[data-page="${field.page}"]`);
+    if (!page) continue;
+    const [x0, y0, x1, y1] = field.box;
+    const value = state.values[field.id];
+    const el = document.createElement("div");
+    el.style.left = `${x0 / 10}%`; el.style.top = `${y0 / 10}%`;
+    el.style.width = `${(x1 - x0) / 10}%`; el.style.height = `${(y1 - y0) / 10}%`;
+    el.title = field.plain;
+    if (!value) { el.className = "ghost"; page.append(el); continue; }
+    el.className = `fill ${field.type === "date" ? "text" : field.type}${freshIds.includes(field.id) ? " fresh" : ""}`;
+    const heightPx = ((y1 - y0) / 1000) * page.clientHeight;
+    const widthPx = ((x1 - x0) / 1000) * page.clientWidth;
+    let size = Math.max(8, Math.min(heightPx * 0.8, 18));
+    const order = freshIds.indexOf(field.id);
+    if (field.type === "checkbox") {
+      handwrite(el, ["✕"], false, order);
+      size = Math.max(9, Math.min(heightPx, widthPx) * 1.05);
+    } else if (field.type === "digits" && field.cells > 1) {
+      handwrite(el, [...value.replace(/\s/g, "")], true, order);
+      size = Math.max(8, Math.min(heightPx * 0.8, (widthPx / field.cells) * 0.9, 18));
+    } else {
+      handwrite(el, [...value], false, order);
+      size = Math.min(size, Math.max(7, (widthPx / Math.max(value.length, 1)) * 1.7));
+      if (/^[\d\s\/.\-@+a-zA-Z_:]+$/.test(value)) el.style.direction = "ltr";
+    }
+    // Relative to the page width, so the ink keeps its place when the page is resized or printed.
+    el.style.fontSize = `${(size / page.clientWidth) * 100}cqw`;
+    page.append(el);
+  }
+}
+// Writes a value onto the paper one character at a time, like a pen. `order` < 0 means it is already there.
+const calm = matchMedia("(prefers-reduced-motion: reduce)").matches;
+function handwrite(el, chars, asCells, order) {
+  const put = (ch) => {
+    if (asCells) { const s = document.createElement("span"); s.textContent = ch; el.append(s); }
+    else el.textContent += ch;
+  };
+  if (order < 0 || calm) return chars.forEach(put);
+  el.style.animationDelay = `${order * 350}ms`;
+  setTimeout(() => {
+    if (order % 4 === 0) el.scrollIntoView({ behavior: "smooth", block: "center" });
+    chars.forEach((ch, i) => setTimeout(() => put(ch), i * 45));
+  }, order * 350);
+}
+// After the model has read the form, show every place it found, one after the other.
+function revealScan() {
+  if (calm) return;
+  const ghosts = [...document.querySelectorAll(".ghost")];
+  const step = Math.min(25, 2500 / Math.max(ghosts.length, 1));
+  ghosts.forEach((g, i) => (g.style.animationDelay = `${i * step}ms`));
+  document.body.classList.add("scan");
+  setTimeout(() => document.body.classList.remove("scan"), 4500);
+}
+addEventListener("resize", () => renderFills());
+
+// ---- One conversation turn ---------------------------------------------------------------
+async function turn(userText) {
+  if (state.busy || !state.form) return;
+  state.busy = true;
+  $("answer").disabled = $("sendBtn").disabled = true;
+  showOptions([]);
+  if (userText) { say("me", userText); state.messages.push({ role: "user", content: userText }); }
+  // A turn that looks something up (a postal code) can take 20 seconds; never leave the person facing silence.
+  const waiting = document.createElement("div");
+  waiting.className = "msg bot"; waiting.textContent = "…";
+  $("log").append(waiting); waiting.scrollIntoView({ block: "end" });
+  const slow = setTimeout(() => (waiting.textContent = "רגע, אני בודק משהו בשבילך…"), 5000);
+  try {
+    const { text } = await post("/api/chat", { form: state.form, messages: state.messages }).finally(() => { clearTimeout(slow); waiting.remove(); });
+    const reply = JSON.parse(text);
+    if (!state.messages.length) state.messages.push({ role: "user", content: "שלום, בוא נתחיל." });
+    state.messages.push({ role: "assistant", content: text });
+    const fresh = [];
+    for (const { id, value } of reply.updates) {
+      if (!state.form.fields.some((f) => f.id === id)) continue;
+      if (value) state.values[id] = value; else delete state.values[id];
+      fresh.push(id);
+    }
+    renderFills(fresh);
+    say("bot", reply.say);
+    showOptions(reply.done ? [] : reply.options || []);
+    const filled = Object.keys(state.values).length;
+    if (reply.done) { $("printBtn").hidden = false; setStatus(`הטופס מוכן להדפסה. מולאו ${filled} שדות.`); }
+    else if (filled) setStatus(`מולאו ${filled} שדות עד עכשיו`);
+  } catch (error) {
+    say("note", `שגיאה: ${error.message}`);
+    if (userText) state.messages.pop();
+  } finally {
+    state.busy = false;
+    $("answer").disabled = $("sendBtn").disabled = false;
+    $("answer").focus();
+  }
+}
+
+// ---- Wiring ------------------------------------------------------------------------------
+async function loadSample(name = "101.pdf") {
+  const res = await fetch(`/file/${encodeURIComponent(name)}`);
+  if (!res.ok) return say("note", `לא נמצא קובץ בשם ${name}`);
+  const blob = await res.blob();
+  loadForm(new File([blob], name, { type: blob.type }));
+}
+$("sampleBtn").addEventListener("click", () => loadSample());
+const sample = new URLSearchParams(location.search).get("sample");
+if (sample !== null) loadSample(sample || undefined);
+$("newBtn").addEventListener("click", () => $("newFile").click());
+$("newFile").addEventListener("change", (e) => { if (e.target.files[0]) loadForm(e.target.files[0]); e.target.value = ""; });
+$("file").addEventListener("change", (e) => e.target.files[0] && loadForm(e.target.files[0]));
+addEventListener("dragover", (e) => e.preventDefault());
+addEventListener("drop", (e) => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f) loadForm(f); });
+$("composer").addEventListener("submit", (e) => {
+  e.preventDefault();
+  const text = $("answer").value.trim();
+  if (!text) return;
+  $("answer").value = "";
+  turn(text);
+});
+$("printBtn").addEventListener("click", () => print());
+$("boxesBtn").addEventListener("click", (e) => {
+  const on = document.body.classList.toggle("boxes");
+  e.currentTarget.setAttribute("aria-pressed", on);
+});
+$("voiceBtn").addEventListener("click", (e) => {
+  state.speak = !state.speak;
+  e.currentTarget.setAttribute("aria-pressed", state.speak);
+  if (!state.speak) speechSynthesis.cancel();
+  else { const last = [...document.querySelectorAll(".msg.bot")].pop(); if (last) speak(last.textContent); }
+});
+$("bigBtn").addEventListener("click", (e) => {
+  e.currentTarget.setAttribute("aria-pressed", document.body.classList.toggle("big"));
+});
+$("rateBtn").addEventListener("click", (e) => {
+  state.rate = (state.rate + 1) % RATES.length;
+  const r = RATES[state.rate];
+  e.currentTarget.textContent = r.label;
+  e.currentTarget.setAttribute("aria-label", `מהירות ההקראה: ${r.name}. לחצו כדי לשנות`);
+  // Re-read the current question at the new speed so the change is heard at once.
+  const last = [...document.querySelectorAll(".msg.bot")].pop();
+  if (last) { if (!state.speak) $("voiceBtn").click(); else speak(last.textContent); }
+});
+const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+if (!Recognition) $("mic").hidden = true;
+else {
+  const rec = new Recognition();
+  rec.lang = "he-IL"; rec.interimResults = true;
+  rec.onresult = (e) => { $("answer").value = [...e.results].map((r) => r[0].transcript).join(""); };
+  rec.onend = () => { $("mic").classList.remove("live"); const t = $("answer").value.trim(); if (t && !state.busy) { $("answer").value = ""; turn(t); } };
+  listen = () => {
+    if ($("mic").classList.contains("live")) return;
+    $("mic").classList.add("live");
+    try { rec.start(); } catch { $("mic").classList.remove("live"); }
+  };
+  $("mic").addEventListener("click", () => {
+    if ($("mic").classList.contains("live")) return rec.stop();
+    speechSynthesis.cancel(); listen();
+  });
+}
+</script>
+</body>
+</html>
