@@ -66,9 +66,18 @@ const ANALYZE_SCHEMA = {
 const CHAT_SCHEMA = {
   type: "object",
   additionalProperties: false,
-  required: ["say", "options", "updates", "done"],
+  required: ["say", "options", "updates", "rights", "done"],
   properties: {
     say: { type: "string" },
+    rights: {
+      type: "array",
+      items: {
+        type: "object",
+        additionalProperties: false,
+        required: ["title", "attach"],
+        properties: { title: { type: "string" }, attach: { type: "string" } },
+      },
+    },
     options: { type: "array", items: { type: "string" } },
     updates: {
       type: "array",
@@ -109,6 +118,8 @@ How the conversation goes:
 - When nothing relevant is left, set done to true and tell them briefly what they still need to do by hand: ${form.leftover.join("; ") || "nothing"}.
 
 In "options", give the answers as big buttons whenever your question can be answered by picking: two to four short labels in everyday Hebrew ("כן", "לא", "רווק", "נשוי"). Many people who use this cannot type easily, so a button is a kindness. Leave it empty when the answer is a name, a number or a date.
+
+Forms like this hide entitlements in their small print, and the people who cannot read the small print are the ones who lose them. Watch for every benefit, exemption, discount or right this form grants that the person turns out to qualify for, given what they told you, and ask the questions that uncover them. In "rights", return the full running list each turn: "title" is the entitlement in a few plain Hebrew words ("הנחה במס לחייל משוחרר"), "attach" is what they must attach or do to get it, or an empty string. List only what the form itself grants and what their answers support. Do not state amounts of money unless the form prints them. When you find a new one, tell them in your reply, as good news.
 
 Each turn, return in "updates" every field you can now fill, by id. Values are written onto the paper exactly as given: Hebrew text as the person would write it, digits only for "digits" fields, dd/mm/yyyy for dates, and "X" for a checkbox that should be ticked. To correct an earlier value, send the id again; to clear it, send an empty value.
 
