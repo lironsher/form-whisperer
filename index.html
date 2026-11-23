@@ -43,7 +43,19 @@
   #mic { font-size:24px; width:60px; }
   #mic.live { background:#d00000; color:#fff; border-color:#d00000; }
   #paper { overflow:auto; padding:20px; min-height:0; }
-  #drop { border:3px dashed var(--line); border-radius:20px; padding:60px 30px; text-align:center; font-size:22px; background:var(--card); display:block; cursor:pointer; }
+  #hero { max-width:980px; margin:0 auto; padding:24px 8px; text-align:center; }
+  #hero h2 { font-size:clamp(34px, 4.6vw, 60px); line-height:1.1; margin:10px 0 14px; text-wrap:balance; }
+  #hero .lead { font-size:22px; color:#4a5568; margin:0 auto 30px; max-width:640px; text-wrap:balance; }
+  #hero .cards { display:grid; grid-template-columns:repeat(3, 1fr); gap:16px; text-align:start; margin-bottom:30px; }
+  #hero article { background:var(--card); border-radius:18px; padding:22px; border:1px solid var(--line); }
+  #hero article span { font-size:14px; font-weight:700; color:var(--accent); letter-spacing:.04em; }
+  #hero article:nth-child(3) { border:2px solid #2a9d5c; background:#f1fbf4; }
+  #hero article:nth-child(3) span { color:#14633a; }
+  #hero h3 { font-size:23px; line-height:1.25; margin:8px 0 10px; }
+  #hero article p { font-size:17px; line-height:1.5; margin:0; color:#3c4658; }
+  #sampleBtn { font-size:26px; padding:18px 44px; border-radius:16px; min-height:68px; }
+  @media (max-width: 900px) { #hero .cards { grid-template-columns:1fr; } }
+  #drop { border:2px dashed var(--line); border-radius:16px; padding:18px; margin-top:20px; text-align:center; font-size:18px; color:#4a5568; display:block; cursor:pointer; }
   #drop input { position:absolute; opacity:0; width:1px; height:1px; }
   @page { margin:0; }
   .page { container-type:inline-size; position:relative; margin:0 auto 20px; box-shadow:0 2px 14px rgba(0,0,0,.15); background:#fff; width:100%; max-width:1000px; }
@@ -94,11 +106,32 @@
     </form>
   </section>
   <section id="paper" aria-label="הטופס">
-    <label id="drop">
-      <input type="file" id="file" accept="application/pdf,image/*">
-      📄 גררו לכאן טופס, או לחצו לבחירה<br><small>PDF או צילום. בלי תבנית מוכנה — המודל רואה את הטופס בפעם הראשונה.</small>
-    </label>
-    <p style="text-align:center"><button id="sampleBtn">או נסו עם טופס 101</button></p>
+    <div id="hero">
+      <h2>בינואר כולנו ממלאים טופס 101.</h2>
+      <p class="lead">סוף שנה. כל עובד בישראל מקבל את אותו דף: 186 משבצות, אותיות קטנות, שפה של פקידים.</p>
+      <div class="cards">
+        <article>
+          <span>הבעיה</span>
+          <h3>כל אחד מאיתנו ייתקל בזה בקרוב</h3>
+          <p>מי שלא מבין את הטופס מסמן פחות ממה שמגיע לו, ומשלם יותר מס כל השנה.</p>
+        </article>
+        <article>
+          <span>האתגר</span>
+          <h3>למלא הכול לבד, בלי לרוץ ל-HR</h3>
+          <p>ולא רק 101: ביטוח לאומי, רישוי, ארנונה. כל טופס הוא קיר אחר.</p>
+        </article>
+        <article>
+          <span>הפתרון</span>
+          <h3>מעלים קובץ, ומדברים</h3>
+          <p>המערכת רואה את הטופס בפעם הראשונה, שואלת שאלות פשוטות, וחוקרת תוך כדי אילו זכויות מגיעות לך.</p>
+        </article>
+      </div>
+      <button id="sampleBtn" class="primary">▶ דמו: טופס 101</button>
+      <label id="drop">
+        <input type="file" id="file" accept="application/pdf,image/*">
+        📄 או גררו לכאן כל טופס אחר, PDF או צילום
+      </label>
+    </div>
   </section>
 </main>
 <script>
