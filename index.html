@@ -18,7 +18,12 @@
   button.primary { background:var(--accent); color:#fff; border-color:var(--accent); font-weight:600; }
   button:focus-visible, input:focus-visible, label:focus-within { outline:3px solid #ffb703; outline-offset:2px; }
   button[aria-pressed="true"] { background:#14213d; color:#fff; }
-  main { flex:1; display:grid; grid-template-columns: minmax(340px, 38%) 1fr; min-height:0; }
+  /* minmax(0, …): the form canvas is 2000px wide inside, and must never push the chat off the screen. */
+  main { flex:1; display:grid; grid-template-columns: minmax(0, 38%) minmax(0, 1fr); min-height:0; min-width:0; }
+  body { overflow-x:hidden; }
+  #paper, #chatPane { min-width:0; }
+  .msg { overflow-wrap:anywhere; }
+  header { flex-wrap:wrap; row-gap:8px; }
   #chatPane { display:flex; flex-direction:column; border-inline-end:1px solid var(--line); background:var(--card); min-height:0; }
   #log { flex:1; overflow:auto; padding:20px; display:flex; flex-direction:column; gap:14px; }
   .msg { max-width:92%; padding:14px 18px; border-radius:16px; font-size:22px; line-height:1.5; white-space:pre-wrap; }
